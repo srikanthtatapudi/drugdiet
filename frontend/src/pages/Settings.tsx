@@ -32,8 +32,9 @@ const Settings: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    document.body.classList.toggle('vs-dark-mode', state.dark_mode);
-    return () => document.body.classList.remove('vs-dark-mode');
+    // Always force dark mode
+    document.body.classList.add('vs-dark-mode');
+    document.documentElement.classList.add('dark');
   }, [state.dark_mode]);
 
   const save = async () => {

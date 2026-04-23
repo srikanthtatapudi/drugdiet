@@ -1910,3 +1910,109 @@ body:not(.vs-dark-mode) .profile-name {
   color: #a8b3cf;
   font-size: 14px;
 }
+
+/* Profile Layout Structure since it was missing */
+.vs-profile-page {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .vs-profile-page {
+    grid-template-columns: 1fr;
+  }
+}
+.vs-profile-card {
+  padding: 30px;
+}
+.vs-medical-profile-card {
+  padding: 30px;
+}
+.vs-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-top: 15px;
+}
+@media (max-width: 600px) {
+  .vs-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.vs-form-grid label,
+.vs-textarea-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+.vs-form-grid input,
+.vs-form-grid select,
+.vs-textarea-field textarea {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  transition: var(--transition);
+}
+
+.vs-form-grid input:focus,
+.vs-form-grid select:focus,
+.vs-textarea-field textarea:focus {
+  outline: none;
+  border-color: var(--mint);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.vs-profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+/* Dark Mode Fixes for Profile & Appointments */
+body.vs-dark-mode .vs-profile-page,
+body.vs-dark-mode .vs-appointments-page {
+  color: var(--text);
+}
+
+body.vs-dark-mode .vs-form-grid input,
+body.vs-dark-mode .vs-form-grid select,
+body.vs-dark-mode .vs-textarea-field textarea {
+  background: #111827;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+body.vs-dark-mode .vs-profile-card h3,
+body.vs-dark-mode .vs-medical-profile-card h3,
+body.vs-dark-mode .vs-appointments-card-head h3,
+body.vs-dark-mode .vs-appointments-hero-text h2,
+body.vs-dark-mode .vs-appointment-title-row strong,
+body.vs-dark-mode .profile-name,
+body.vs-dark-mode label,
+body.vs-dark-mode .vs-appointments-hero h2 {
+  color: #f8fafc;
+}
+
+body.vs-dark-mode .vs-appointments-hero {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-color: #334155;
+}
+
+body.vs-dark-mode .vs-profile-card,
+body.vs-dark-mode .vs-medical-profile-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+body.vs-dark-mode .vs-bmi-tag {
+  color: #f8fafc;
+}

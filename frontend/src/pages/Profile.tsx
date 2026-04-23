@@ -8,6 +8,9 @@ const Profile: React.FC = () => {
   const [message, setMessage] = useState('');
 
   const [form, setForm] = useState({
+    age: user?.age || 0,
+    height: user?.height || 0,
+    weight: user?.weight || 0,
     gender: user?.gender || 'male',
     allergies: user?.allergies || '',
     medical_conditions: user?.medical_conditions || '',
@@ -17,6 +20,9 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     setForm({
+      age: user?.age || 0,
+      height: user?.height || 0,
+      weight: user?.weight || 0,
       gender: user?.gender || 'male',
       allergies: user?.allergies || '',
       medical_conditions: user?.medical_conditions || '',
@@ -83,6 +89,18 @@ const Profile: React.FC = () => {
               <input type="text" value={estimatedBirthYear} readOnly />
             </label>
             <label>
+              Age
+              <input type="number" value={form.age || ''} onChange={(e) => setForm(p => ({ ...p, age: parseInt(e.target.value) || 0 }))} />
+            </label>
+            <label>
+              Height (cm)
+              <input type="number" value={form.height || ''} onChange={(e) => setForm(p => ({ ...p, height: parseInt(e.target.value) || 0 }))} />
+            </label>
+            <label>
+              Weight (kg)
+              <input type="number" value={form.weight || ''} onChange={(e) => setForm(p => ({ ...p, weight: parseInt(e.target.value) || 0 }))} />
+            </label>
+            <label>
               Gender
               <select
                 value={form.gender}
@@ -145,6 +163,9 @@ const Profile: React.FC = () => {
 
           <div className="vs-profile-actions">
             <button type="button" onClick={() => setForm({
+              age: user?.age || 0,
+              height: user?.height || 0,
+              weight: user?.weight || 0,
               gender: user?.gender || 'male',
               allergies: user?.allergies || '',
               medical_conditions: user?.medical_conditions || '',

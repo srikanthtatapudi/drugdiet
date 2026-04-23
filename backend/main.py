@@ -16,7 +16,9 @@ import os
 import pandas as pd
 from pydantic import BaseModel
 import warnings
+from dotenv import load_dotenv
 
+load_dotenv()
 warnings.filterwarnings("ignore")
 
 
@@ -129,7 +131,7 @@ class UserSettings(Base):
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, index=True)
     language = Column(String, default="english")
     data_privacy = Column(Boolean, default=False)
-    dark_mode = Column(Boolean, default=False)
+    dark_mode = Column(Boolean, default=True)
     medication_reminders = Column(Boolean, default=True)
     diet_alerts = Column(Boolean, default=True)
     weekly_reports = Column(Boolean, default=False)
@@ -336,7 +338,7 @@ def get_or_create_user_settings(user_id: int, db: Session) -> UserSettings:
     if settings:
         return settings
 
-    settings = UserSettings(user_id=user_id)
+    settings = UserSettings(user_id=user_id, dark_mode=True)
     db.add(settings)
     db.commit()
     db.refresh(settings)
@@ -2003,18 +2005,17 @@ class MedicalAI:
         if "how many days" in last_bot_msg or "severity" in last_bot_msg:
             # We assume user is answering parameters. Combine previous symptom msg with this
             prev_symptom_msg = ""
-            for i in range(len(history) - 2, -1, -1):
-                if history[i].get("role") == "user":
-                    prev_symptom_msg = history[i].get("content", "").lower()
-                    break
-            text = prev_symptom_msg + " " + text # Merge them so analyze_disease catches everything
+            for msg in history:
+                if msg.get("role") == "user":
+                    prev_symptom_msg += msg.get("content", "").lower() + " "
+            text = prev_symptom_msg + text # Merge them so analyze_disease catches everything
             
         # 4. Symptom Analysis Flow
         symptoms = self._extract_symptoms_locally(text)
         
         if symptoms:
             # Ask for severity and duration if missing
-            has_duration = re.search(r'\\b\\d+\\s*(day|week|month)s?\\b', text)
+            has_duration = re.search(r'\\b\\d+\\s*(day|week|month)s?\\b', text) or ("days" in last_bot_msg and re.search(r'\\b\\d+\\b', text))
             has_severity = re.search(r'\\b(10|[1-9])(/10| out of 10)?\\b', text) or any(w in text for w in ["mild", "severe", "extreme", "moderate"])
             
             if not has_duration or not has_severity:
@@ -2059,6 +2060,52 @@ class MedicalAI:
         text = message.lower().strip()
         quick = self._get_chat_quick_replies(text)
         
+        # 1. Try Groq MedGPT
+        import json
+        profile_str = json.dumps({k: v for k, v in user_profile.items() if v}, default=str)
+        drugs_str = json.dumps([d.get("name") for d in previous_drugs], default=str)
+        
+        system_msg = (
+            "You are AuraHealth AI (MedGPT), a professional, empathetic medical assistant. "
+            f"User Profile: {profile_str}. "
+            f"Previously Recommended Drugs: {drugs_str}. "
+            "IMPORTANT: If they have previous drugs, proactively ask how they are feeling after taking them or if they remembered to take them. "
+            "Provide concise, helpful medical advice. Keep responses under 150 words. "
+            "Respond ONLY with a valid JSON object in this format: "
+            '{"reply": "your markdown message", "quick_replies": ["option 1", "option 2"]}'
+        )
+        
+        messages = [{"role": "system", "content": system_msg}]
+        for msg in (history or [])[-5:]:
+            messages.append({"role": "user" if msg["role"] == "user" else "assistant", "content": msg["content"]})
+        messages.append({"role": "user", "content": message})
+        
+        payload = {
+            "model": "llama3-8b-8192",
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 300,
+        }
+        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        
+        try:
+            response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=8)
+            if response.status_code == 200:
+                content = response.json()["choices"][0]["message"]["content"]
+                start_idx = content.find('{')
+                end_idx = content.rfind('}')
+                if start_idx != -1 and end_idx != -1:
+                    json_str = content[start_idx:end_idx+1]
+                    data = json.loads(json_str)
+                    if "reply" in data:
+                        return {
+                            "reply": data["reply"],
+                            "quick_replies": data.get("quick_replies", quick)
+                        }
+        except Exception as e:
+            print("MedGPT API Error:", e)
+
+        # 2. Fallback to offline rule engine
         reply = self._generate_smart_chat_reply(message, history or [], user_profile, previous_drugs, quick)
         
         if not reply:
@@ -2511,6 +2558,52 @@ def get_recommendation_history(current_user: User = Depends(get_current_user), d
 @app.get("/previous-drugs")
 def previous_drugs(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return medical_ai.get_previous_drug_records(current_user.id, db, limit=8)
+
+
+@app.get("/daily-checkin")
+def daily_checkin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    previous_drugs = medical_ai.get_previous_drug_records(current_user.id, db, limit=3)
+    
+    if not previous_drugs:
+        return {"message": None}
+        
+    import json
+    drugs_str = json.dumps([d.get("name") for d in previous_drugs], default=str)
+    
+    system_msg = (
+        "You are AuraHealth AI. The user has just logged in. "
+        f"Their recently recommended drugs: {drugs_str}. "
+        "Write a short, engaging 2-sentence popup message asking how they are feeling after taking these medications, "
+        "and suggest what they should do next (e.g., 'Make sure to stay hydrated' or 'Log any new symptoms'). "
+        "Respond ONLY with a valid JSON object: "
+        '{"message": "your text", "next_steps": ["step 1", "step 2"]}'
+    )
+    
+    payload = {
+        "model": "llama3-8b-8192",
+        "messages": [{"role": "system", "content": system_msg}],
+        "temperature": 0.5,
+        "max_tokens": 150,
+    }
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+    
+    try:
+        import requests
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=8)
+        if response.status_code == 200:
+            content = response.json()["choices"][0]["message"]["content"]
+            start_idx = content.find('{')
+            end_idx = content.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                json_str = content[start_idx:end_idx+1]
+                return json.loads(json_str)
+    except Exception as e:
+        print("Daily Checkin Error:", e)
+        
+    return {
+        "message": f"Welcome back! How are you feeling after taking your recent medications ({', '.join([d.get('name') for d in previous_drugs])})?",
+        "next_steps": ["Log any new symptoms", "Stay hydrated"]
+    }
 
 
 @app.post("/ai-chat")

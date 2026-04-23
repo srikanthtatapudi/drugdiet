@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../api/client';
 import { DashboardData, SettingsState } from '../api/types';
 import FloatingChatBot from './FloatingChatBot';
+import DailyCheckinModal from './DailyCheckinModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type NavItem = {
@@ -48,7 +49,9 @@ const AppShell: React.FC = () => {
           apiClient.get<SettingsState>('/settings')
         ]);
         setNotifications(dashResponse.data.notifications);
-        if (settingsResponse.data.dark_mode) document.documentElement.classList.add('dark');
+        // Force dark mode to align with the premium #0F172A AppShell background
+        document.documentElement.classList.add('dark');
+        document.body.classList.add('vs-dark-mode');
       } catch {
         setNotifications(['Unable to load notifications right now.']);
       }
@@ -225,6 +228,7 @@ const AppShell: React.FC = () => {
       </div>
 
       <FloatingChatBot />
+      <DailyCheckinModal />
     </div>
   );
 };
