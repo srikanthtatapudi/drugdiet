@@ -26,7 +26,8 @@ const History: React.FC = () => {
     if (!user) return;
 
     try {
-      const response = await axios.get('http://localhost:8000/history');
+      const { apiClient } = await import('../api/client');
+      const response = await apiClient.get('/history');
       setHistory(response.data);
     } catch (error: any) {
       setError(error.response?.data?.detail || 'Failed to fetch history');
