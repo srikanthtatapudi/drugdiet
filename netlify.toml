@@ -8,6 +8,9 @@
   # The folder where the built React files will be placed
   publish = "build"
 
+[build.environment]
+  CI = "false"
+
 # Optional: Add routing rules for React Router (Single Page Application)
 [[redirects]]
   from = "/*"

@@ -44,7 +44,7 @@ const AppShell: React.FC = () => {
     if (!isAuthenticated) return;
     const loadData = async () => {
       try {
-        const [dashResponse, settingsResponse] = await Promise.all([
+        const [dashResponse] = await Promise.all([
           apiClient.get<DashboardData>('/dashboard'),
           apiClient.get<SettingsState>('/settings')
         ]);

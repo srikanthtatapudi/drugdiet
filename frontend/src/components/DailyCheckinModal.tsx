@@ -11,7 +11,6 @@ type CheckinData = {
 const DailyCheckinModal: React.FC = () => {
   const [data, setData] = useState<CheckinData | null>(null);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCheckin = async () => {
@@ -23,8 +22,6 @@ const DailyCheckinModal: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch daily checkin:', error);
-      } finally {
-        setLoading(false);
       }
     };
     fetchCheckin();
