@@ -2653,10 +2653,11 @@ def ai_chat(request: ChatRequest, current_user: User = Depends(get_current_user)
     db.add(user_msg)
     db.commit()
 
-    # Load recent history from DB for context
+    # Load recent history from DB for context (excluding the message we just inserted)
     recent_history = (
         db.query(ChatHistory)
         .filter(ChatHistory.user_id == current_user.id)
+        .filter(ChatHistory.id < user_msg.id)
         .order_by(ChatHistory.created_at.desc())
         .limit(15)
         .all()
