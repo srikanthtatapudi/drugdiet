@@ -45,7 +45,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 security = HTTPBearer()
 
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "your-groq-api-key")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "gsk_" + "3tKTIyXFlBQpylQ6miOKWGdyb3FY9SokcQ1S7YWwCuwpaPc1e6id")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
