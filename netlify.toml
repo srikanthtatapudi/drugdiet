@@ -1,0 +1,15 @@
+[build]
+  # Tell Netlify to only look at the frontend folder
+  base = "frontend"
+  
+  # The command to build the React application
+  command = "npm run build"
+  
+  # The folder where the built React files will be placed
+  publish = "build"
+
+# Optional: Add routing rules for React Router (Single Page Application)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
