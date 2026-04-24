@@ -155,6 +155,16 @@ class Appointment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ChatHistory(Base):
+    __tablename__ = "chat_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    role = Column(String)
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 Base.metadata.create_all(bind=engine, checkfirst=True)
 
 
@@ -2069,12 +2079,15 @@ class MedicalAI:
         drugs_str = json.dumps([d.get("name") for d in previous_drugs], default=str)
         
         system_msg = (
-            "You are AuraHealth AI (MedGPT), a professional, empathetic medical assistant. "
+            "You are AuraHealth AI (MedGPT), a highly intelligent, conversational, and empathetic medical assistant. "
             f"User Profile: {profile_str}. "
             f"Previously Recommended Drugs: {drugs_str}. "
-            "IMPORTANT: If they have previous drugs, proactively ask how they are feeling after taking them or if they remembered to take them. "
-            "Provide concise, helpful medical advice. Keep responses under 150 words. "
-            "Respond ONLY with a valid JSON object in this format: "
+            "IMPORTANT INSTRUCTIONS:\\n"
+            "1. You must understand context from the conversation history. If the user replies with a number (e.g., '3' or '2 days'), look at the previous messages to see what you asked them (like duration or severity) and respond appropriately based on that context.\\n"
+            "2. If they have previous drugs, proactively ask how they are feeling after taking them or if they remembered to take them.\\n"
+            "3. Provide helpful, conversational medical advice, structured beautifully with markdown. Keep responses concise (under 150 words).\\n"
+            "4. Be proactive: ask relevant follow-up questions to understand their symptoms better.\\n"
+            "Respond ONLY with a valid JSON object in this format:\\n"
             '{"reply": "your markdown message", "quick_replies": ["option 1", "option 2"]}'
         )
         
@@ -2609,6 +2622,24 @@ def daily_checkin(current_user: User = Depends(get_current_user), db: Session = 
     }
 
 
+@app.get("/chat-history")
+def get_chat_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    history = (
+        db.query(ChatHistory)
+        .filter(ChatHistory.user_id == current_user.id)
+        .order_by(ChatHistory.created_at.asc())
+        .limit(100)
+        .all()
+    )
+    return [
+        {
+            "role": "bot" if msg.role == "assistant" else msg.role,
+            "text": msg.content,
+            "time": msg.created_at.strftime("%I:%M %p")
+        }
+        for msg in history
+    ]
+
 @app.post("/ai-chat")
 def ai_chat(request: ChatRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user_profile = {
@@ -2617,12 +2648,30 @@ def ai_chat(request: ChatRequest, current_user: User = Depends(get_current_user)
     }
     previous_drugs = medical_ai.get_previous_drug_records(current_user.id, db, limit=5)
     
-    # Map Pydantic history objects to dictionaries
-    history_dicts = []
-    if request.history:
-        history_dicts = [{"role": msg.role, "content": msg.content} for msg in request.history]
+    # Save user message
+    user_msg = ChatHistory(user_id=current_user.id, role="user", content=request.message)
+    db.add(user_msg)
+    db.commit()
+
+    # Load recent history from DB for context
+    recent_history = (
+        db.query(ChatHistory)
+        .filter(ChatHistory.user_id == current_user.id)
+        .order_by(ChatHistory.created_at.desc())
+        .limit(15)
+        .all()
+    )
+    # Reverse to chronological order for the AI prompt
+    history_dicts = [{"role": msg.role, "content": msg.content} for msg in reversed(recent_history)]
         
-    return medical_ai.generate_chat_reply(request.message, user_profile, previous_drugs, history_dicts)
+    response_data = medical_ai.generate_chat_reply(request.message, user_profile, previous_drugs, history_dicts)
+    
+    # Save assistant message
+    bot_msg = ChatHistory(user_id=current_user.id, role="assistant", content=response_data.get("reply", ""))
+    db.add(bot_msg)
+    db.commit()
+    
+    return response_data
 
 
 @app.get("/drugs")

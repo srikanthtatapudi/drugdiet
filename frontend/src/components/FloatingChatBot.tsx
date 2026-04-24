@@ -58,6 +58,22 @@ const FloatingChatBot: React.FC = () => {
   const canSend = input.trim().length > 0 && !loading;
 
   useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await apiClient.get<ChatMessage[]>('/chat-history');
+        if (response.data && response.data.length > 0) {
+          setMessages(response.data);
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+    };
+    if (localStorage.getItem('token')) {
+      fetchHistory();
+    }
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading, open]);
